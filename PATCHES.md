@@ -24,6 +24,11 @@ below, and nothing else. FAIM pins it by `rev`.
    `src/bridge/menus.rs` parses it with `parse_with_os(chord, OperatingSystem::Mac)`,
    the same parser with `secondary-` resolved for macOS.
 
+5. **`image` without its default features.** native-gpui uses its pixel types alone
+   (`RgbaImage`, `Frame`). The defaults turn on every codec for gpui-fast's copy too,
+   AVIF encoding included, which brings `rav1e` and the unmaintained `paste`
+   (RUSTSEC-2024-0436).
+
 ## Checked
 
 On macOS 27 (Apple silicon), `cargo build --examples` builds all 23 examples. Dev
@@ -32,6 +37,6 @@ builds need LLVM, since Cranelift can't compile gpui-fast's `ctor` `asm!`.
 
 ## Updating
 
-Rebase onto Cafekery/NativeGPUI's `main`, keep the four changes above, and move
+Rebase onto Cafekery/NativeGPUI's `main`, keep the five changes above, and move
 `gpui-fast` and `gpui-fast-platform` together to the release FAIM's `gui/Cargo.toml`
 pins.
