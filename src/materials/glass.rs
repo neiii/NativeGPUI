@@ -350,11 +350,3 @@ impl Element for GlassContainer {
         OPEN.with(|open| open.borrow_mut().truncate(depth));
     }
 }
-
-impl IntoElement for GlassContainer {
-    type Element = Self;
-
-    fn into_element(self) -> Self {
-        self
-    }
-}

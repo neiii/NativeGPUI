@@ -1377,14 +1377,6 @@ impl Element for NativeContextMenu {
     }
 }
 
-impl IntoElement for NativeContextMenu {
-    type Element = Self;
-
-    fn into_element(self) -> Self {
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

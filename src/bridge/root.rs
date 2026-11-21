@@ -56,14 +56,6 @@ macro_rules! wrapper_element {
                 <$ty>::paint(self, bounds, window, cx);
             }
         }
-
-        impl gpui::IntoElement for $ty {
-            type Element = Self;
-
-            fn into_element(self) -> Self {
-                self
-            }
-        }
     };
 }
 pub(crate) use wrapper_element;

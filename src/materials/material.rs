@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::panic::Location;
 
 use gpui::{
-    AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
+    AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId,
     LayoutId, ParentElement, Pixels, Refineable, Style, StyleRefinement, Styled, Window, px,
 };
 use objc2::rc::Retained;
@@ -420,14 +420,6 @@ impl Element for NativeMaterial {
                 child.paint(window, cx);
             }
         });
-    }
-}
-
-impl IntoElement for NativeMaterial {
-    type Element = Self;
-
-    fn into_element(self) -> Self {
-        self
     }
 }
 

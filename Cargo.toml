@@ -21,7 +21,7 @@ private-api = []
 
 [dependencies]
 # faim: gpui-fast in place of zed's GPUI (see PATCHES.md).
-gpui = { package = "gpui-fast", version = "=0.1.14", default-features = false }
+gpui = { package = "gpui-fast", version = "=0.1.17", default-features = false }
 # faim: the pixel types only. The defaults add every codec, AVIF encoding included.
 image = { version = "0.25", default-features = false }
 raw-window-handle = "0.6"
@@ -52,7 +52,7 @@ objc2-quick-look-thumbnailing = { version = "0.3.2", default-features = false, f
 [dev-dependencies]
 # faim: without font-kit you get NoopTextSystem and no text. The app depending on
 # native-gpui turns it on the same way.
-gpui_platform = { package = "gpui-fast-platform", version = "=0.1.14", features = ["font-kit"] }
+gpui_platform = { package = "gpui-fast-platform", version = "=0.1.17", features = ["font-kit"] }
 parking_lot = "0.12"
 
 [[example]]

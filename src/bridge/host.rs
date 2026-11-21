@@ -779,14 +779,6 @@ macro_rules! hosted_element {
                 self.paint(slot, window, cx);
             }
         }
-
-        impl gpui::IntoElement for $ty {
-            type Element = Self;
-
-            fn into_element(self) -> Self {
-                self
-            }
-        }
     };
 }
 pub(crate) use hosted_element;

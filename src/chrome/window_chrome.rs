@@ -2439,14 +2439,6 @@ impl Element for CursorRegion {
     }
 }
 
-impl IntoElement for CursorRegion {
-    type Element = Self;
-
-    fn into_element(self) -> Self::Element {
-        self
-    }
-}
-
 pub fn native_tooltip(
     id: impl Into<ElementId>,
     text: impl Into<SharedString>,
@@ -2540,14 +2532,6 @@ macro_rules! text_region {
                     Some(bounds) => host.$set(key, native_rect(*bounds), &self.text),
                     None => host.$remove(key),
                 }
-            }
-        }
-
-        impl IntoElement for $region {
-            type Element = Self;
-
-            fn into_element(self) -> Self::Element {
-                self
             }
         }
     };
