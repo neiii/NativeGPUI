@@ -61,6 +61,13 @@ below, and nothing else. FAIM pins it by `rev`.
 10. **`MenuCommand::boxed(title, action)`.** A row from an action an app holds as a
    `Box<dyn Action>`, which `new`'s `impl Action` can't take: FAIM builds its menu bar
    from a table of commands, each making its action boxed. `new` calls it.
+11. **`Glass::passes_presses()`.** A glass that lets a press through to whatever is under
+   it: FAIM's toast is Liquid Glass at a pane's foot and asks nothing of the pointer, so
+   a click on the rows under it has to reach them. Stock, `NSGlassEffectView` answers
+   `hitTest:` with itself across its bounds; with `passes_presses` the glass is an
+   `NGPassingGlass`, which answers with nothing, as `NGBackdrop` does for a material. A
+   glass whose setting changes is rebuilt, as the host rebuilds any slot whose view
+   changes type.
 
 ## Checked
 

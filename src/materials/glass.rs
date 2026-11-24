@@ -55,6 +55,7 @@ pub fn glass(id: impl Into<ElementId>) -> Glass {
         corner_radius: None,
         tint: None,
         clear: false,
+        passes_presses: false,
         #[cfg(feature = "private-api")]
         private: Private::default(),
     }
@@ -66,6 +67,7 @@ pub struct Glass {
     corner_radius: Option<Pixels>,
     tint: Option<Hsla>,
     clear: bool,
+    passes_presses: bool,
     #[cfg(feature = "private-api")]
     private: Private,
 }
@@ -96,6 +98,14 @@ impl Glass {
         self
     }
 
+    /// Lets a press through to whatever is under the glass, as a surface that asks nothing
+    /// of the pointer, such as a toast, needs. Stock, the glass takes every press across
+    /// its bounds, GPUI's under it included.
+    pub fn passes_presses(mut self) -> Self {
+        self.passes_presses = true;
+        self
+    }
+
     fn layout(&self) -> Style {
         full_size()
     }
@@ -108,11 +118,23 @@ impl Glass {
         });
         let layer = container.as_ref().map_or(self.layer, |&(_, layer)| layer);
         let parent = container.as_ref().map(|(content, _)| &**content);
-        let view = slot
-            .host
-            .place_in(slot.key, layer, parent, slot.bounds, slot.mask, |mtm, _| {
-                NSGlassEffectView::new(mtm)
-            });
+        // A glass whose `passes_presses` changes is rebuilt, since the host keeps a slot's
+        // view only while its type stays.
+        let view: Retained<NSGlassEffectView> = if self.passes_presses {
+            Retained::into_super(slot.host.place_in(
+                slot.key,
+                layer,
+                parent,
+                slot.bounds,
+                slot.mask,
+                |mtm, _| PassingGlass::new(mtm),
+            ))
+        } else {
+            slot.host
+                .place_in(slot.key, layer, parent, slot.bounds, slot.mask, |mtm, _| {
+                    NSGlassEffectView::new(mtm)
+                })
+        };
 
         #[cfg(not(feature = "private-api"))]
         {
@@ -170,6 +192,28 @@ impl Glass {
     pub fn content_lensing(mut self, lensing: bool) -> Self {
         self.private.lensing = lensing;
         self
+    }
+}
+
+define_class!(
+    /// A glass that answers `hitTest:` with nothing, so a press goes to the view under it,
+    /// as `NGBackdrop` does for a material.
+    #[unsafe(super(NSGlassEffectView, NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "NGPassingGlass"]
+    struct PassingGlass;
+
+    impl PassingGlass {
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, _point: NSPoint) -> *mut NSView {
+            ptr::null_mut()
+        }
+    }
+);
+
+impl PassingGlass {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
     }
 }
 
