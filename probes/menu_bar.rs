@@ -76,14 +76,6 @@ const EXPECTED: &[Expect] = &[
         menu: "View",
         exact: false,
         rows: &[
-            ("Show Toolbar", "t", "cmd-alt", "toggleToolbarShown:"),
-            (
-                "Customize Toolbar…",
-                "",
-                "",
-                "runToolbarCustomizationPalette:",
-            ),
-            ("-", "", "", ""),
             ("Show Sidebar", "s", "cmd-ctrl", "toggleSidebar:"),
             ("-", "", "", ""),
             // macOS swaps the ⌃⌘F asked for to Globe-F, keeping ⌃⌘F on an alternate.
@@ -380,6 +372,44 @@ fn read_table(bar: &NSMenu, name: &str) {
         }
     }
     println!();
+}
+
+/// The toolbar's and window tabs' rows, which the bar leaves out (PATCHES.md, change 7).
+const NO_TABS_OR_TOOLBAR: &[&str] = &[
+    "newWindowForTab:",
+    "toggleToolbarShown:",
+    "runToolbarCustomizationPalette:",
+    "toggleTabBar:",
+    "toggleTabOverview:",
+    "selectPreviousTab:",
+    "selectNextTab:",
+    "moveTabToNewWindow:",
+    "mergeAllWindows:",
+];
+
+fn rows_sending(menu: &NSMenu, path: &str, found: &mut Vec<String>) {
+    for item in rows_of(menu) {
+        let here = format!("{path}/{}", item.title());
+        if let Some(selector) = item.action().map(selector_string) {
+            if NO_TABS_OR_TOOLBAR.contains(&selector.as_str()) {
+                found.push(format!("{here} {selector}"));
+            }
+        }
+        if let Some(submenu) = item.submenu() {
+            rows_sending(&submenu, &here, found);
+        }
+    }
+}
+
+/// Every menu and submenu, AppKit's own tail rows included.
+fn no_tab_or_toolbar_rows(bar: &NSMenu) {
+    let mut found = Vec::new();
+    rows_sending(bar, "", &mut found);
+    verdict(
+        "bar.no_tab_or_toolbar_rows",
+        found.is_empty(),
+        &format!("rows{found:?}"),
+    );
 }
 
 /// By identity: AppKit's tail appears only once there is something to put in it.
@@ -836,6 +866,7 @@ async fn run(arm: &str, cx: &mut AsyncApp, handle: &WindowHandle<Probe>) {
         }
         _ => {
             read_table(&bar, name);
+            no_tab_or_toolbar_rows(&bar);
             registered_menus(&bar, name);
             tags(&bar, name);
             controls(&bar);

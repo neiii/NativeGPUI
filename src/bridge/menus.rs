@@ -219,7 +219,6 @@ const CTRL: NSEventModifierFlags = NSEventModifierFlags::Control;
 const CMD_SHIFT: NSEventModifierFlags = CMD.union(NSEventModifierFlags::Shift);
 const CMD_ALT: NSEventModifierFlags = CMD.union(NSEventModifierFlags::Option);
 const CMD_CTRL: NSEventModifierFlags = CMD.union(CTRL);
-const CTRL_SHIFT: NSEventModifierFlags = CTRL.union(NSEventModifierFlags::Shift);
 
 fn menu(mtm: MainThreadMarker, title: &str) -> Retained<NSMenu> {
     NSMenu::initWithTitle(NSMenu::alloc(mtm), &worded(title))
@@ -333,9 +332,8 @@ pub fn install_menus(cx: &mut App) {
     app_menu.add_separator();
     app_menu.add_row(&format!("Quit {name}"), sel!(terminate:), "q", CMD);
 
+    // No toolbar or window-tab rows: FAIM's windows have neither (PATCHES.md, change 7).
     let file = section(mtm, &bar, "File");
-    crate::chrome::tabs::teach_new_tab(mtm);
-    file.add_row("New Tab", sel!(newWindowForTab:), "t", CMD);
     file.add_row("Close", sel!(performClose:), "w", CMD);
 
     let edit = section(mtm, &bar, "Edit");
@@ -357,17 +355,6 @@ pub fn install_menus(cx: &mut App) {
 
     // AppKit flips these titles itself; naming the current state would freeze them.
     let view = section(mtm, &bar, "View");
-    view.add_row("Show Toolbar", sel!(toggleToolbarShown:), "t", CMD_ALT);
-    view.add_row(
-        "Customize Toolbar…",
-        sel!(runToolbarCustomizationPalette:),
-        "",
-        NONE,
-    );
-    view.add_separator();
-    view.add_row("Show Tab Bar", sel!(toggleTabBar:), "t", CMD_SHIFT);
-    view.add_row("Show All Tabs", sel!(toggleTabOverview:), "\\", CMD_SHIFT);
-    view.add_separator();
     view.add_row("Show Sidebar", sel!(toggleSidebar:), "s", CMD_CTRL);
     view.add_separator();
     view.add_row("Enter Full Screen", sel!(toggleFullScreen:), "f", CMD_CTRL);
@@ -375,21 +362,6 @@ pub fn install_menus(cx: &mut App) {
     let window = section(mtm, &bar, "Window");
     window.add_row("Minimize", sel!(performMiniaturize:), "m", CMD);
     window.add_row("Zoom", sel!(performZoom:), "", NONE);
-    window.add_separator();
-    window.add_row(
-        "Show Previous Tab",
-        sel!(selectPreviousTab:),
-        "\u{19}",
-        CTRL_SHIFT,
-    );
-    window.add_row("Show Next Tab", sel!(selectNextTab:), "\t", CTRL);
-    window.add_row(
-        "Move Tab to New Window",
-        sel!(moveTabToNewWindow:),
-        "",
-        NONE,
-    );
-    window.add_row("Merge All Windows", sel!(mergeAllWindows:), "", NONE);
     window.add_separator();
     window.add_row("Bring All to Front", sel!(arrangeInFront:), "", NONE);
 

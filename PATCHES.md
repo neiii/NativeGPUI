@@ -33,6 +33,13 @@ below, and nothing else. FAIM pins it by `rev`.
    impls (`NativeMaterial`, `GlassContainer`, `NativeContextMenu`, `CursorRegion`, the
    window-chrome regions, and the ones `hosted_element!` and `wrapper_element!` write)
    conflict with it and are gone; the blanket impl does the same.
+7. **No toolbar or window-tab rows in the menu bar.** `install_menus` leaves out New Tab
+   (File), Show Toolbar, Customize Toolbar…, Show Tab Bar and Show All Tabs (View), and
+   Show Previous Tab, Show Next Tab, Move Tab to New Window and Merge All Windows
+   (Window). FAIM's windows have no toolbar and no tabs, and gpui turns automatic window
+   tabbing off for a window opened without a tabbing identifier, so AppKit adds none of
+   its own either. `window_tabs` still gives a window tabs; an app that calls it adds the
+   rows it wants with `extend_menu`. The `menu_bar` probe checks no menu holds one.
 
 ## Checked
 
@@ -42,6 +49,6 @@ builds need LLVM, since Cranelift can't compile gpui-fast's `ctor` `asm!`.
 
 ## Updating
 
-Rebase onto Cafekery/NativeGPUI's `main`, keep the six changes above, and move
+Rebase onto Cafekery/NativeGPUI's `main`, keep the changes above, and move
 `gpui-fast` and `gpui-fast-platform` together to the release FAIM's `gui/Cargo.toml`
 pins.
