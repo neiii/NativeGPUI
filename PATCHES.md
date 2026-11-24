@@ -42,23 +42,31 @@ below, and nothing else. FAIM pins it by `rev`.
    rows it wants with `extend_menu`. The `menu_bar` probe checks no menu holds one.
 8. **`NativeLabel::fitting_size(window)`.** The size AppKit fits a label's text to on one
    line, at the font the label draws with, rounded up to `window`'s pixels as a drawn
-   field's `fittingSize` is. FAIM's toasts size their capsule to it. The `label_fitting`
+   field's `fittingSize` is. It measures on every call, with no cache to grow by every
+   text an app shows. FAIM's toasts size their capsule to it. The `label_fitting`
    probe checks it against the drawn label's own `fittingSize`, and that a box one point
    narrower cuts the text off.
 9. **A menu opened from a key.** `open_menu(at, entries, on_select, window, cx)` opens
    `MenuEntry` rows as an AppKit menu with its top-left corner at a point in the window,
    where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and
    `open_command_menu(at, commands, window, cx)` does the same for `MenuCommand` rows,
-   each dispatching its action as a menu bar row does. Both enter AppKit's tracking loop
-   on a later turn, as the click path does, through one helper the click path now shares.
+   each dispatching its action as a menu bar row does; a popup's rows are released from
+   the action table once it closes, where the menu bar's stay. Both enter AppKit's
+   tracking loop on a later turn through `track_later`, which `NativeContextMenu`'s click
+   path was rewritten to share, so a rebase can conflict in its `paint` too.
    The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it
    sends the keys, picks a row in each and checks what it got.
 
 ## Checked
 
-On macOS 27 (Apple silicon), `cargo build --examples` builds all 23 examples. Dev
+On macOS 27 (Apple silicon), `cargo build --examples` builds every example and probe,
+with and without `private-api`. Dev
 builds need LLVM, since Cranelift can't compile gpui-fast's `ctor` `asm!`.
-`window_chrome` and `sidebar` render as on zed's GPUI.
+`window_chrome` and `sidebar` render as on zed's GPUI. Changes 7 to 9 were checked in a
+macOS 27 VM: the `menu_bar` probe (its `fire` rows stay BLOCKED unbundled), the
+`label_fitting` probe, and `menu_from_key` with `NG_DRIVE=1`. Two `cargo test --lib`
+tests, `the_folder_icon_is_blue` and `the_installer_package_icon_is_orange`, fail on
+macOS 27 before these changes too.
 
 ## Updating
 

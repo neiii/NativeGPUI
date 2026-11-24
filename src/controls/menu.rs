@@ -1190,14 +1190,16 @@ fn show_menu(
 }
 
 /// Runs `show`, which enters AppKit's menu tracking loop, on a later turn, then `after` with
-/// what it returned. Does nothing while one of this crate's menus is open.
+/// what it returned. While one of this crate's menus is open it runs neither, and answers
+/// `false`.
+#[must_use]
 pub(crate) fn track_later<R: 'static>(
     cx: &AsyncWindowContext,
     show: impl FnOnce() -> R + 'static,
     after: impl FnOnce(R, &mut AsyncWindowContext) + 'static,
-) {
+) -> bool {
     if SHOWING.replace(true) {
-        return;
+        return false;
     }
     // Deferred: entering the tracking loop under GPUI's `App` borrow panics next frame.
     cx.spawn(async move |cx| {
@@ -1206,6 +1208,7 @@ pub(crate) fn track_later<R: 'static>(
         after(shown, cx);
     })
     .detach();
+    true
 }
 
 /// `at` in `window`'s coordinates, on the view menus anchor to.
@@ -1226,17 +1229,19 @@ pub(crate) fn menu_anchor(
 /// or when `entries` is empty.
 pub fn open_menu(
     at: Point<Pixels>,
-    entries: Vec<MenuEntry>,
+    entries: impl IntoIterator<Item = MenuEntry>,
     on_select: impl FnOnce(&usize, &mut Window, &mut App) + 'static,
     window: &mut Window,
     cx: &mut App,
 ) {
+    let entries: Vec<MenuEntry> = entries.into_iter().collect();
     if entries.is_empty() {
         return;
     }
     let (anchor, location) = menu_anchor(at, window, cx);
     let show = move || show_menu(&anchor, location, None, &entries);
-    track_later(&window.to_async(cx), show, move |picked, cx| {
+    // Nothing to release when another menu is open: these entries go with the closure.
+    let _ = track_later(&window.to_async(cx), show, move |picked, cx| {
         if let Some(index) = picked {
             let _ = cx.update(|window, app| on_select(&index, window, app));
         }
@@ -1411,7 +1416,7 @@ impl Element for NativeContextMenu {
                 let handler = handler.clone();
                 let closed = closed.clone();
                 let show = move || show_menu(&anchor, location, click.as_deref(), &entries);
-                track_later(&async_cx, show, move |picked, cx| {
+                let _ = track_later(&async_cx, show, move |picked, cx| {
                     if let Some(closed) = closed {
                         let _ = cx.update(|window, app| closed(window, app));
                     }

@@ -107,22 +107,19 @@ impl NativeLabel {
     }
 
     /// The size AppKit fits this label's text to on one line in `window`, at the font it
-    /// draws with: a box this size shows the whole text. Measured once per text and font,
-    /// on the main thread only.
+    /// draws with: a box this size shows the whole text. Each call measures afresh, with no
+    /// cache to grow by every text a session shows, so keep the size while the text stays.
+    ///
+    /// # Panics
+    ///
+    /// Off the main thread, where AppKit measures nothing.
     pub fn fitting_size(&self, window: &Window) -> Size<Pixels> {
-        let inputs = (
-            self.text.as_ref(),
-            self.point_size(),
-            self.weight,
-            self.tabular,
-        );
+        let mtm = MainThreadMarker::new().expect("gpui windows render on the main thread");
+        let probe = NSTextField::labelWithString(&NSString::from_str(&self.text), mtm);
+        probe.setFont(Some(&self.font()));
         // The cell's size is unrounded; a field's `fittingSize` rounds it up to its window's
         // pixels, and a probe outside any window would round to whole points.
-        let cell = fitting_size_of("NSTextField(label text)", inputs, |mtm| {
-            let probe = NSTextField::labelWithString(&NSString::from_str(&self.text), mtm);
-            probe.setFont(Some(&self.font()));
-            probe.cell().map_or(NSSize::ZERO, |cell| cell.cellSize())
-        });
+        let cell = probe.cell().map_or(NSSize::ZERO, |cell| cell.cellSize());
         let scale = f64::from(window.scale_factor());
         let to_pixels = |points: f64| px(((points * scale).ceil() / scale) as f32);
         size(to_pixels(cell.width), to_pixels(cell.height))

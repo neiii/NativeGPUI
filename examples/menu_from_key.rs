@@ -146,13 +146,8 @@ fn ns_window(cx: &mut App, handle: &WindowHandle<Chooser>) -> Option<Retained<NS
         .flatten()
 }
 
-/// ↩, with ⇧ when `shift`, sent to `window` as the keyboard would.
-fn send_return(window: &NSWindow, shift: bool) {
-    let flags = if shift {
-        NSEventModifierFlags::Shift
-    } else {
-        NSEventModifierFlags::empty()
-    };
+/// ↩ with `flags` held, sent to `window` as the keyboard would.
+fn send_return(window: &NSWindow, flags: NSEventModifierFlags) {
     let text = NSString::from_str("\r");
     let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
         NSEventType::KeyDown,
@@ -227,7 +222,7 @@ async fn drive(cx: &mut AsyncApp, handle: WindowHandle<Chooser>, chosen: Rc<Cell
     pick_second_row_of_each_menu();
     let mut failed = 0;
 
-    send_return(&window, false);
+    send_return(&window, NSEventModifierFlags::empty());
     settle(cx).await;
     verdict(
         &mut failed,
@@ -242,7 +237,7 @@ async fn drive(cx: &mut AsyncApp, handle: WindowHandle<Chooser>, chosen: Rc<Cell
         format!("chosen {}", chosen.get()),
     );
 
-    send_return(&window, true);
+    send_return(&window, NSEventModifierFlags::Shift);
     settle(cx).await;
     let dispatched = DISPATCHED.with_borrow(Clone::clone);
     verdict(

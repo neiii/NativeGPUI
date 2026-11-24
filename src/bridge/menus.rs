@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::ffi::CStr;
+use std::ops::Range;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
@@ -9,8 +10,8 @@ use crate::controls::{CheckState, MenuView};
 use crate::system::wording::worded;
 use block2::RcBlock;
 use gpui::{
-    Action, App, AsyncApp, Keystroke, Menu, MenuItem, OperatingSystem, Pixels, Point, SharedString,
-    Window,
+    Action, App, AsyncApp, AsyncWindowContext, Keystroke, Menu, MenuItem, OperatingSystem, Pixels,
+    Point, SharedString, Window,
 };
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Bool, ProtocolObject, Sel};
@@ -464,15 +465,24 @@ pub fn open_command_menu(
         CommandSink::install(mtm, cx);
     }
     let popup = NSMenu::new(mtm);
+    let first = CommandSink::registered();
     insert_commands(mtm, &popup, 0, commands);
+    // The popup's rows are registered for this one showing; a chosen row's action is sent
+    // before the tracking loop returns, so they are released once it has.
+    let rows = first..CommandSink::registered();
     if popup.numberOfItems() == 0 {
+        CommandSink::release(rows);
         return;
     }
     let (anchor, location) = menu_anchor(at, window, cx);
     let show = move || {
         popup.popUpMenuPositioningItem_atLocation_inView(None, location, Some(&anchor));
     };
-    track_later(&window.to_async(cx), show, |(), _| {});
+    let released = rows.clone();
+    let after = move |(), _: &mut AsyncWindowContext| CommandSink::release(released);
+    if !track_later(&window.to_async(cx), show, after) {
+        CommandSink::release(rows);
+    }
 }
 
 fn rows_into(section: MenuSection, commands: impl IntoIterator<Item = MenuCommand>, first: bool) {
@@ -790,6 +800,7 @@ fn command_of(item: &NSMenuItem) -> Option<(Box<dyn Action>, Option<TextCommand>
     COMMANDS.with_borrow(|commands| {
         commands
             .get(index as usize)
+            .and_then(Option::as_ref)
             .map(|(action, text)| (action.boxed_clone(), *text))
     })
 }
@@ -934,7 +945,8 @@ thread_local! {
     static ENABLED: RefCell<Option<Rc<dyn Fn(&dyn Action) -> bool>>> = const { RefCell::new(None) };
     static TITLE: RefCell<Option<Rc<dyn Fn(&dyn Action) -> Option<SharedString>>>> =
         const { RefCell::new(None) };
-    static COMMANDS: RefCell<Vec<(Box<dyn Action>, Option<TextCommand>)>> =
+    /// Indexed by a row's `representedObject`; a released popup's rows are `None`.
+    static COMMANDS: RefCell<Vec<Option<(Box<dyn Action>, Option<TextCommand>)>>> =
         const { RefCell::new(Vec::new()) };
     static STOCK_EDIT: RefCell<Vec<Retained<NSMenuItem>>> = const { RefCell::new(Vec::new()) };
     static RELAY: OnceCell<Retained<MainWindowRelay>> = const { OnceCell::new() };
@@ -949,9 +961,26 @@ impl CommandSink {
 
     fn register(action: Box<dyn Action>, text: Option<TextCommand>) -> isize {
         COMMANDS.with_borrow_mut(|commands| {
-            commands.push((action, text));
+            commands.push(Some((action, text)));
             commands.len() as isize - 1
         })
+    }
+
+    /// How many rows have been registered: the next row's index.
+    fn registered() -> usize {
+        COMMANDS.with_borrow(Vec::len)
+    }
+
+    /// Drops the actions of `rows`, a popup's, and shortens the table past any released tail.
+    fn release(rows: Range<usize>) {
+        COMMANDS.with_borrow_mut(|commands| {
+            for slot in commands.get_mut(rows).into_iter().flatten() {
+                *slot = None;
+            }
+            while commands.last().is_some_and(Option::is_none) {
+                commands.pop();
+            }
+        });
     }
 
     fn perform(&self, sender: *mut NSMenuItem) {
@@ -977,7 +1006,43 @@ impl CommandSink {
 
 #[cfg(test)]
 mod tests {
-    use super::equivalent_key;
+    use super::{COMMANDS, CommandSink, Unhandled, equivalent_key};
+    use gpui::Action;
+
+    fn register(count: usize) -> std::ops::Range<usize> {
+        let first = CommandSink::registered();
+        for _ in 0..count {
+            CommandSink::register(Unhandled.boxed_clone(), None);
+        }
+        first..CommandSink::registered()
+    }
+
+    #[test]
+    fn a_released_popup_leaves_the_menu_bar_rows_and_takes_its_own() {
+        let bar = register(3);
+        let popup = register(2);
+        CommandSink::release(popup);
+        assert_eq!(CommandSink::registered(), bar.end);
+        assert_eq!(
+            COMMANDS.with_borrow(|rows| rows.iter().filter(|row| row.is_some()).count()),
+            3
+        );
+    }
+
+    #[test]
+    fn a_popup_released_under_later_rows_keeps_their_indices() {
+        register(1);
+        let popup = register(2);
+        let later = register(1);
+        CommandSink::release(popup.clone());
+        assert_eq!(CommandSink::registered(), later.end);
+        COMMANDS.with_borrow(|rows| {
+            assert!(rows[popup].iter().all(Option::is_none));
+            assert!(rows[later.clone()].iter().all(Option::is_some));
+        });
+        CommandSink::release(later);
+        assert_eq!(CommandSink::registered(), 1);
+    }
 
     #[test]
     fn a_named_key_is_the_character_it_types() {
