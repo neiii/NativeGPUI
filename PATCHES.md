@@ -58,6 +58,9 @@ below, and nothing else. FAIM pins it by `rev`.
    path was rewritten to share, so a rebase can conflict in its `paint` too.
    The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it
    sends the keys, picks a row in each and checks what it got.
+10. **`MenuCommand::boxed(title, action)`.** A row from an action an app holds as a
+   `Box<dyn Action>`, which `new`'s `impl Action` can't take: FAIM builds its menu bar
+   from a table of commands, each making its action boxed. `new` calls it.
 
 ## Checked
 

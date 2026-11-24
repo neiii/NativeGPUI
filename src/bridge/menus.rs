@@ -105,9 +105,14 @@ type ViewFill = dyn Fn() -> MenuView;
 
 impl MenuCommand {
     pub fn new(title: impl Into<String>, action: impl Action) -> Self {
+        Self::boxed(title, Box::new(action))
+    }
+
+    /// As `new`, for an action an app holds boxed, as one read from a table of commands.
+    pub fn boxed(title: impl Into<String>, action: Box<dyn Action>) -> Self {
         Self {
             title: title.into(),
-            action: Some(Box::new(action)),
+            action: Some(action),
             ..Self::separator()
         }
     }
