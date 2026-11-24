@@ -78,6 +78,10 @@ name = "menu_bar"
 path = "probes/menu_bar.rs"
 
 [[example]]
+name = "label_fitting"
+path = "probes/label_fitting.rs"
+
+[[example]]
 name = "menu_probe"
 path = "probes/menu_probe.rs"
 

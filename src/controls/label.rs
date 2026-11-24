@@ -1,11 +1,13 @@
-use gpui::{App, ElementId, FontWeight, Pixels, SharedString, Style, Window, px, relative, size};
+use gpui::{
+    App, ElementId, FontWeight, Pixels, SharedString, Size, Style, Window, px, relative, size,
+};
 use objc2::rc::Retained;
 use objc2::{ClassType, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSColorSystemEffect, NSControl, NSFont, NSLineBreakMode, NSResponder, NSTextAlignment,
     NSTextField, NSView,
 };
-use objc2_foundation::{MainThreadMarker, NSObject, NSPoint, NSString};
+use objc2_foundation::{MainThreadMarker, NSObject, NSPoint, NSSize, NSString};
 
 use crate::bridge::host::{Layer, Slot, hosted_element};
 use crate::controls::{fitting_size_of, nsstring_is};
@@ -102,6 +104,28 @@ impl NativeLabel {
     pub fn wraps(mut self, wraps: bool) -> Self {
         self.wraps = wraps;
         self
+    }
+
+    /// The size AppKit fits this label's text to on one line in `window`, at the font it
+    /// draws with: a box this size shows the whole text. Measured once per text and font,
+    /// on the main thread only.
+    pub fn fitting_size(&self, window: &Window) -> Size<Pixels> {
+        let inputs = (
+            self.text.as_ref(),
+            self.point_size(),
+            self.weight,
+            self.tabular,
+        );
+        // The cell's size is unrounded; a field's `fittingSize` rounds it up to its window's
+        // pixels, and a probe outside any window would round to whole points.
+        let cell = fitting_size_of("NSTextField(label text)", inputs, |mtm| {
+            let probe = NSTextField::labelWithString(&NSString::from_str(&self.text), mtm);
+            probe.setFont(Some(&self.font()));
+            probe.cell().map_or(NSSize::ZERO, |cell| cell.cellSize())
+        });
+        let scale = f64::from(window.scale_factor());
+        let to_pixels = |points: f64| px(((points * scale).ceil() / scale) as f32);
+        size(to_pixels(cell.width), to_pixels(cell.height))
     }
 
     fn point_size(&self) -> Pixels {

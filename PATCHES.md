@@ -40,6 +40,11 @@ below, and nothing else. FAIM pins it by `rev`.
    tabbing off for a window opened without a tabbing identifier, so AppKit adds none of
    its own either. `window_tabs` still gives a window tabs; an app that calls it adds the
    rows it wants with `extend_menu`. The `menu_bar` probe checks no menu holds one.
+8. **`NativeLabel::fitting_size(window)`.** The size AppKit fits a label's text to on one
+   line, at the font the label draws with, rounded up to `window`'s pixels as a drawn
+   field's `fittingSize` is. FAIM's toasts size their capsule to it. The `label_fitting`
+   probe checks it against the drawn label's own `fittingSize`, and that a box one point
+   narrower cuts the text off.
 
 ## Checked
 
