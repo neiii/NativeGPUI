@@ -31,7 +31,7 @@ pub use image::{NativeImage, native_image, native_raster, native_symbol};
 pub use label::{LabelAlign, NativeLabel, native_label};
 pub use menu::{
     MenuEntry, MenuOrigin, MenuView, NativeContextMenu, NativePopup, native_context_menu,
-    native_popup,
+    native_popup, open_menu,
 };
 pub use progress::{
     LevelStyle, NativeLevel, NativeProgress, NativeSpinner, native_level, native_progress,

@@ -7,9 +7,9 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Bounds, DispatchPhase, Element, ElementId, GlobalElementId, Hsla,
-    InspectorElementId, IntoElement, LayoutId, Length, Modifiers, MouseButton, MouseDownEvent,
-    Pixels, Point, Size, Style, Window, px, size,
+    AnyElement, App, AsyncWindowContext, Bounds, DispatchPhase, Element, ElementId,
+    GlobalElementId, Hsla, InspectorElementId, IntoElement, LayoutId, Length, Modifiers,
+    MouseButton, MouseDownEvent, Pixels, Point, Size, Style, Window, px, size,
 };
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Bool, Sel};
@@ -1189,6 +1189,60 @@ fn show_menu(
     usize::try_from(sink.ivars().picked.get()).ok()
 }
 
+/// Runs `show`, which enters AppKit's menu tracking loop, on a later turn, then `after` with
+/// what it returned. Does nothing while one of this crate's menus is open.
+pub(crate) fn track_later<R: 'static>(
+    cx: &AsyncWindowContext,
+    show: impl FnOnce() -> R + 'static,
+    after: impl FnOnce(R, &mut AsyncWindowContext) + 'static,
+) {
+    if SHOWING.replace(true) {
+        return;
+    }
+    // Deferred: entering the tracking loop under GPUI's `App` borrow panics next frame.
+    cx.spawn(async move |cx| {
+        let shown = show();
+        SHOWING.set(false);
+        after(shown, cx);
+    })
+    .detach();
+}
+
+/// `at` in `window`'s coordinates, on the view menus anchor to.
+pub(crate) fn menu_anchor(
+    at: Point<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) -> (Retained<Container>, NSPoint) {
+    let anchor = NativeHost::get(window, cx).above();
+    (anchor, NSPoint::new(at.x.to_f64(), at.y.to_f64()))
+}
+
+/// Opens `entries` as an AppKit menu with its top-left corner at `at`, in `window`'s
+/// coordinates: how a key opens a chooser that a click opens with
+/// [`MenuOrigin::ElementTopLeft`]. `on_select` gets the chosen row's depth-first index,
+/// separators and submenu rows counted, as [`NativeContextMenu::on_select`]'s handler does.
+/// The menu opens on a later turn; nothing opens while another of this crate's menus is open,
+/// or when `entries` is empty.
+pub fn open_menu(
+    at: Point<Pixels>,
+    entries: Vec<MenuEntry>,
+    on_select: impl FnOnce(&usize, &mut Window, &mut App) + 'static,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if entries.is_empty() {
+        return;
+    }
+    let (anchor, location) = menu_anchor(at, window, cx);
+    let show = move || show_menu(&anchor, location, None, &entries);
+    track_later(&window.to_async(cx), show, move |picked, cx| {
+        if let Some(index) = picked {
+            let _ = cx.update(|window, app| on_select(&index, window, app));
+        }
+    });
+}
+
 /// A real `NSMenu` on a GPUI-drawn region, shown on right-click or control-click.
 pub fn native_context_menu(id: impl Into<ElementId>, child: impl IntoElement) -> NativeContextMenu {
     NativeContextMenu {
@@ -1356,20 +1410,15 @@ impl Element for NativeContextMenu {
                 let anchor = anchor.clone();
                 let handler = handler.clone();
                 let closed = closed.clone();
-                SHOWING.set(true);
-                // Deferred: entering the tracking loop under GPUI's `App` borrow panics next frame.
-                async_cx
-                    .spawn(async move |cx| {
-                        let picked = show_menu(&anchor, location, click.as_deref(), &entries);
-                        SHOWING.set(false);
-                        if let Some(closed) = closed {
-                            let _ = cx.update(|window, app| closed(window, app));
-                        }
-                        if let Some(index) = picked {
-                            let _ = cx.update(|window, app| handler(&index, window, app));
-                        }
-                    })
-                    .detach();
+                let show = move || show_menu(&anchor, location, click.as_deref(), &entries);
+                track_later(&async_cx, show, move |picked, cx| {
+                    if let Some(closed) = closed {
+                        let _ = cx.update(|window, app| closed(window, app));
+                    }
+                    if let Some(index) = picked {
+                        let _ = cx.update(|window, app| handler(&index, window, app));
+                    }
+                });
             });
         }
 

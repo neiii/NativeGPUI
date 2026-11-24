@@ -4,11 +4,14 @@ use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-use crate::controls::menu::{event_mask, set_state};
+use crate::controls::menu::{event_mask, menu_anchor, set_state, track_later};
 use crate::controls::{CheckState, MenuView};
 use crate::system::wording::worded;
 use block2::RcBlock;
-use gpui::{Action, App, AsyncApp, Keystroke, Menu, MenuItem, OperatingSystem, SharedString};
+use gpui::{
+    Action, App, AsyncApp, Keystroke, Menu, MenuItem, OperatingSystem, Pixels, Point, SharedString,
+    Window,
+};
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Bool, ProtocolObject, Sel};
 use objc2::{ClassType, DefinedClass, MainThreadOnly, Message, define_class, msg_send, sel};
@@ -440,6 +443,36 @@ pub fn replace_about_row(action: impl Action) {
     menu.removeItem(&row);
     let command = MenuCommand::new(row.title().to_string(), action);
     add_command(mtm, &menu, at, command);
+}
+
+/// Opens `commands` as an AppKit menu with its top-left corner at `at`, in `window`'s
+/// coordinates; a chosen row dispatches its action as a menu bar row does, and the menu-bar
+/// hooks (`on_menu_enabled`, `on_menu_state`, `on_menu_title`) answer for its rows too. The
+/// menu opens on a later turn; nothing opens while another of this crate's menus is open, or
+/// when `commands` is empty.
+pub fn open_command_menu(
+    at: Point<Pixels>,
+    commands: impl IntoIterator<Item = MenuCommand>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    // A row's action reaches gpui through the sink `install_menus` sets up.
+    if SHARED.with_borrow(Option::is_none) {
+        CommandSink::install(mtm, cx);
+    }
+    let popup = NSMenu::new(mtm);
+    insert_commands(mtm, &popup, 0, commands);
+    if popup.numberOfItems() == 0 {
+        return;
+    }
+    let (anchor, location) = menu_anchor(at, window, cx);
+    let show = move || {
+        popup.popUpMenuPositioningItem_atLocation_inView(None, location, Some(&anchor));
+    };
+    track_later(&window.to_async(cx), show, |(), _| {});
 }
 
 fn rows_into(section: MenuSection, commands: impl IntoIterator<Item = MenuCommand>, first: bool) {

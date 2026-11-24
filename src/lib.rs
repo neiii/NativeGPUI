@@ -21,7 +21,8 @@ pub use bridge::host::{
 };
 pub use bridge::menus::{
     MenuCommand, MenuSection, TextCommand, add_menu, extend_menu, install_menus, on_menu_enabled,
-    on_menu_state, on_menu_title, prepend_menu, replace_about_row, replace_edit_rows, set_menu,
+    on_menu_state, on_menu_title, open_command_menu, prepend_menu, replace_about_row,
+    replace_edit_rows, set_menu,
 };
 pub use bridge::root::{
     NativeCached, NativeOpacity, NativeRoot, native_cached, native_opacity, native_root,

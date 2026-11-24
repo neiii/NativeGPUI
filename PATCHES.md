@@ -45,6 +45,14 @@ below, and nothing else. FAIM pins it by `rev`.
    field's `fittingSize` is. FAIM's toasts size their capsule to it. The `label_fitting`
    probe checks it against the drawn label's own `fittingSize`, and that a box one point
    narrower cuts the text off.
+9. **A menu opened from a key.** `open_menu(at, entries, on_select, window, cx)` opens
+   `MenuEntry` rows as an AppKit menu with its top-left corner at a point in the window,
+   where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and
+   `open_command_menu(at, commands, window, cx)` does the same for `MenuCommand` rows,
+   each dispatching its action as a menu bar row does. Both enter AppKit's tracking loop
+   on a later turn, as the click path does, through one helper the click path now shares.
+   The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it
+   sends the keys, picks a row in each and checks what it got.
 
 ## Checked
 

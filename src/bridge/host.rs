@@ -410,6 +410,11 @@ impl NativeHost {
         keys
     }
 
+    /// The flipped view over gpui's, in the window's coordinates: an anchor for a menu at a point.
+    pub(crate) fn above(&self) -> Retained<Container> {
+        self.0.borrow().above.clone()
+    }
+
     pub fn place<V: Message + AsRef<NSView> + 'static>(
         &self,
         key: u64,
