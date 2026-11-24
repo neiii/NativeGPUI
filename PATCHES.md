@@ -38,8 +38,9 @@ below, and nothing else. FAIM pins it by `rev`.
    Show Previous Tab, Show Next Tab, Move Tab to New Window and Merge All Windows
    (Window). FAIM's windows have no toolbar and no tabs, and gpui turns automatic window
    tabbing off for a window opened without a tabbing identifier, so AppKit adds none of
-   its own either. `window_tabs` still gives a window tabs; an app that calls it adds the
-   rows it wants with `extend_menu`. The `menu_bar` probe checks no menu holds one.
+   its own either. `window_tabs` still gives a window tabs, with its + button, which
+   `install_menus` still teaches the app delegate; an app that calls it adds the rows it
+   wants with `extend_menu`. The `menu_bar` probe checks no menu holds one.
 8. **`NativeLabel::fitting_size(window)`.** The size AppKit fits a label's text to on one
    line, at the font the label draws with, rounded up to `window`'s pixels as a drawn
    field's `fittingSize` is. It measures on every call, with no cache to grow by every
@@ -50,8 +51,9 @@ below, and nothing else. FAIM pins it by `rev`.
    `MenuEntry` rows as an AppKit menu with its top-left corner at a point in the window,
    where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and
    `open_command_menu(at, commands, window, cx)` does the same for `MenuCommand` rows,
-   each dispatching its action as a menu bar row does; a popup's rows are released from
-   the action table once it closes, where the menu bar's stay. Both enter AppKit's
+   each dispatching its action as a menu bar row does; the rows a popup is opened with
+   are released from the action table once it closes, where the menu bar's stay (rows a
+   filled submenu adds while it is open stay, as the menu bar's filled submenus' do). Both enter AppKit's
    tracking loop on a later turn through `track_later`, which `NativeContextMenu`'s click
    path was rewritten to share, so a rebase can conflict in its `paint` too.
    The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it

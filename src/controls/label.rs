@@ -109,6 +109,8 @@ impl NativeLabel {
     /// The size AppKit fits this label's text to on one line in `window`, at the font it
     /// draws with: a box this size shows the whole text. Each call measures afresh, with no
     /// cache to grow by every text a session shows, so keep the size while the text stays.
+    /// The height is this text's own; the label lays itself out at its font's line height,
+    /// in whole points, which a taller fallback glyph can exceed.
     ///
     /// # Panics
     ///

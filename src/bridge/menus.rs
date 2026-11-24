@@ -336,8 +336,10 @@ pub fn install_menus(cx: &mut App) {
     app_menu.add_separator();
     app_menu.add_row(&format!("Quit {name}"), sel!(terminate:), "q", CMD);
 
-    // No toolbar or window-tab rows: FAIM's windows have neither (PATCHES.md, change 7).
+    // No toolbar or window-tab rows: FAIM's windows have neither (PATCHES.md, change 7). A tab
+    // bar still learns its + button here, before `window_tabs` runs on a built window.
     let file = section(mtm, &bar, "File");
+    crate::chrome::tabs::teach_new_tab(mtm);
     file.add_row("Close", sel!(performClose:), "w", CMD);
 
     let edit = section(mtm, &bar, "Edit");
