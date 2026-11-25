@@ -5,7 +5,8 @@
 //!
 //! `NG_DRIVE=1` drives it without a person: it sends ↩, picks the second row of the menu
 //! that opens, sends ⇧↩, picks the second command, sends ↩ again and closes that menu
-//! with no pick, and exits with the number of checks that failed.
+//! with no pick, opens two menus in one turn and checks only the first opens and answers,
+//! and exits with the number of checks that failed.
 
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -55,7 +56,7 @@ struct Chooser {
 impl Chooser {
     fn open_hellos(&mut self, _: &OpenHellos, window: &mut Window, cx: &mut Context<Self>) {
         let chosen = self.chosen.clone();
-        open_menu(
+        let opened = open_menu(
             CHOOSER,
             hello_entries(chosen.get()),
             move |picked, _, _| match picked {
@@ -71,6 +72,9 @@ impl Chooser {
             window,
             cx,
         );
+        if !opened {
+            println!("another menu is open: the hellos didn't open");
+        }
     }
 
     fn open_commands(&mut self, _: &OpenCommands, window: &mut Window, cx: &mut Context<Self>) {
@@ -138,6 +142,8 @@ thread_local! {
     static OPENED: Cell<u32> = const { Cell::new(0) };
     /// How many menus ↩ opened closed with no row chosen.
     static CLOSED_UNPICKED: Cell<u32> = const { Cell::new(0) };
+    /// How many times a menu the driver opened itself answered `on_close`.
+    static DRIVEN_CLOSES: Cell<u32> = const { Cell::new(0) };
     /// Whether the next menu to open closes with no row chosen, as Esc closes it.
     static DISMISS_NEXT: Cell<bool> = const { Cell::new(false) };
 }
@@ -285,6 +291,30 @@ async fn drive(cx: &mut AsyncApp, handle: WindowHandle<Chooser>, chosen: Rc<Cell
             CLOSED_UNPICKED.get(),
             chosen.get()
         ),
+    );
+
+    // Two in one turn, as two presses handled before the first menu's tracking starts.
+    let opened = handle.update(cx, |_, window, cx| {
+        let entries = || hello_entries(0);
+        let closes = |_: Option<usize>, _: &mut Window, _: &mut App| {
+            DRIVEN_CLOSES.set(DRIVEN_CLOSES.get() + 1);
+        };
+        let first = open_menu(CHOOSER, entries(), closes, window, cx);
+        let second = open_menu(CHOOSER, entries(), closes, window, cx);
+        (first, second)
+    });
+    settle(cx).await;
+    verdict(
+        &mut failed,
+        "twice.only_the_first_opens",
+        matches!(opened, Ok((true, false))) && OPENED.get() == 4,
+        format!("opened {opened:?}, menus opened {}", OPENED.get()),
+    );
+    verdict(
+        &mut failed,
+        "twice.only_the_first_answers",
+        DRIVEN_CLOSES.get() == 1,
+        format!("answered {}", DRIVEN_CLOSES.get()),
     );
 
     println!("\n{failed} failed");

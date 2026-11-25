@@ -1236,26 +1236,29 @@ pub(crate) fn menu_anchor(
 /// [`MenuOrigin::ElementTopLeft`]. `on_close` runs once the menu closes, with the chosen
 /// row's depth-first index, separators and submenu rows counted, as
 /// [`NativeContextMenu::on_select`]'s handler gets it, or `None` when it closed with no
-/// row chosen (Esc, or a click outside it). The menu opens on a later turn; nothing opens,
-/// and `on_close` never runs, while another of this crate's menus is open or when
-/// `entries` is empty.
+/// row chosen (Esc, or a click outside it). The menu opens on a later turn.
+///
+/// Answers whether it will open: `false`, and `on_close` never runs, while another of this
+/// crate's menus is open or waiting to, or when `entries` is empty, so a caller that marked
+/// something for the menu can take the mark away.
+#[must_use]
 pub fn open_menu(
     at: Point<Pixels>,
     entries: impl IntoIterator<Item = MenuEntry>,
     on_close: impl FnOnce(Option<usize>, &mut Window, &mut App) + 'static,
     window: &mut Window,
     cx: &mut App,
-) {
+) -> bool {
     let entries: Vec<MenuEntry> = entries.into_iter().collect();
     if entries.is_empty() {
-        return;
+        return false;
     }
     let (anchor, location) = menu_anchor(at, window, cx);
     let show = move || show_menu(&anchor, location, None, &entries);
     // Nothing to release when another menu is open: these entries go with the closure.
-    let _ = track_later(&window.to_async(cx), show, move |picked, cx| {
+    track_later(&window.to_async(cx), show, move |picked, cx| {
         let _ = cx.update(|window, app| on_close(picked, window, app));
-    });
+    })
 }
 
 /// A real `NSMenu` on a GPUI-drawn region, shown on right-click or control-click.

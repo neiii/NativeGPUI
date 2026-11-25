@@ -52,7 +52,9 @@ below, and nothing else. FAIM pins it by `rev`.
    where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and runs
    `on_close` once it closes, with the chosen row's index or `None` when Esc or a click
    outside closed it, so an app can take away what it marked while the menu was open
-   (FAIM's row menu rings the row it is open on, #909); and
+   (FAIM's row menu rings the row it is open on, #909). It answers whether the menu will
+   open: a second `open_menu` before the first menu's tracking starts is refused, and
+   its `on_close` never runs, so the app takes its mark away then; and
    `open_command_menu(at, commands, window, cx)` does the same for `MenuCommand` rows,
    each dispatching its action as a menu bar row does; the rows a popup is opened with
    are released from the action table once it closes, where the menu bar's stay (rows a
@@ -61,7 +63,8 @@ below, and nothing else. FAIM pins it by `rev`.
    path was rewritten to share, so a rebase can conflict in its `paint` too.
    The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it
    sends the keys, picks a row in each and checks what it got, then closes a third with
-   no pick and checks `on_close` got `None`.
+   no pick and checks `on_close` got `None`, then opens two in one turn and checks only
+   the first opens and answers.
 10. **`MenuCommand::boxed(title, action)`.** A row from an action an app holds as a
    `Box<dyn Action>`, which `new`'s `impl Action` can't take: FAIM builds its menu bar
    from a table of commands, each making its action boxed. `new` calls it.
