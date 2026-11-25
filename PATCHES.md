@@ -84,7 +84,9 @@ with and without `private-api`. Dev
 builds need LLVM, since Cranelift can't compile gpui-fast's `ctor` `asm!`.
 `window_chrome` and `sidebar` render as on zed's GPUI. Changes 7 to 9 were checked in a
 macOS 27 VM: the `menu_bar` probe (its `fire` rows stay BLOCKED unbundled), the
-`label_fitting` probe, and `menu_from_key` with `NG_DRIVE=1`. Two `cargo test --lib`
+`label_fitting` probe, and `menu_from_key` with `NG_DRIVE=1`, which checks change 9's
+`on_close` too. Change 12 is checked by `cargo test --lib`'s
+`a_chord_is_its_key_and_modifiers`. Two `cargo test --lib`
 tests, `the_folder_icon_is_blue` and `the_installer_package_icon_is_orange`, fail on
 macOS 27 before these changes too.
 

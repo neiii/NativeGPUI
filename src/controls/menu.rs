@@ -127,9 +127,8 @@ impl MenuEntry {
     }
 
     /// The key `chord` names, as [`MenuCommand::key`](crate::MenuCommand::key) reads it
-    /// (`"cmd-c"`, `"cmd-shift-backspace"`), so a menu opened from a row's own entries
-    /// shows the key its menu bar row does. A chord `AppKit` can't show leaves the row
-    /// without one.
+    /// (`"cmd-c"`, `"cmd-shift-backspace"`), so the row shows the key a `MenuCommand` row
+    /// with the same chord shows. A chord `AppKit` can't show leaves the row without one.
     pub fn chord(self, chord: &str) -> Self {
         match crate::bridge::menus::chord_key(chord) {
             Some((equivalent, modifiers)) => self.key(equivalent, modifiers),
