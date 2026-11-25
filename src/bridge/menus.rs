@@ -10,8 +10,8 @@ use crate::controls::{CheckState, MenuView};
 use crate::system::wording::worded;
 use block2::RcBlock;
 use gpui::{
-    Action, App, AsyncApp, AsyncWindowContext, Keystroke, Menu, MenuItem, OperatingSystem, Pixels,
-    Point, SharedString, Window,
+    Action, App, AsyncApp, AsyncWindowContext, Keystroke, Menu, MenuItem, Modifiers,
+    OperatingSystem, Pixels, Point, SharedString, Window,
 };
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Bool, ProtocolObject, Sel};
@@ -775,11 +775,15 @@ fn equivalent_key(key: &str) -> Option<String> {
 }
 
 fn equivalent(chord: &str) -> Option<(String, NSEventModifierFlags)> {
+    let (key, modifiers) = chord_key(chord)?;
+    Some((key, event_mask(modifiers)))
+}
+
+/// The key equivalent and modifiers a row shows for `chord`, read as [`MenuCommand::key`]
+/// reads it: `None` for a chord that doesn't parse or a key `AppKit` can't show.
+pub(crate) fn chord_key(chord: &str) -> Option<(String, Modifiers)> {
     let keystroke = Keystroke::parse_with_os(chord, OperatingSystem::Mac).ok()?;
-    Some((
-        equivalent_key(&keystroke.key)?,
-        event_mask(keystroke.modifiers),
-    ))
+    Some((equivalent_key(&keystroke.key)?, keystroke.modifiers))
 }
 
 type MenuState = dyn Fn(&dyn Action) -> Option<CheckState>;
@@ -1013,7 +1017,7 @@ impl CommandSink {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, CommandSink, Unhandled, equivalent_key};
+    use super::{COMMANDS, CommandSink, Unhandled, chord_key, equivalent_key};
     use gpui::Action;
 
     fn register(count: usize) -> std::ops::Range<usize> {
@@ -1058,5 +1062,25 @@ mod tests {
         assert_eq!(equivalent_key("N").as_deref(), Some("n"));
         assert_eq!(equivalent_key("/").as_deref(), Some("/"));
         assert_eq!(equivalent_key("f13"), None);
+    }
+
+    #[test]
+    fn a_chord_is_its_key_and_modifiers() {
+        let command = gpui::Modifiers::command();
+        let command_shift = gpui::Modifiers {
+            shift: true,
+            ..command
+        };
+        assert_eq!(chord_key("cmd-c"), Some(("c".into(), command)));
+        assert_eq!(
+            chord_key("cmd-shift-backspace"),
+            Some(("\u{8}".into(), command_shift))
+        );
+        assert_eq!(
+            chord_key("secondary-up"),
+            Some(("\u{f700}".into(), command))
+        );
+        assert_eq!(chord_key("cmd-f13"), None);
+        assert_eq!(chord_key(""), None);
     }
 }

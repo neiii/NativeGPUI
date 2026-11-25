@@ -72,6 +72,10 @@ below, and nothing else. FAIM pins it by `rev`.
    `NGPassingGlass`, which answers with nothing, as `NGBackdrop` does for a material. A
    glass whose setting changes is rebuilt, as the host rebuilds any slot whose view
    changes type.
+12. **`MenuEntry::chord(chord)`.** A `MenuEntry` row's key from a chord, read as
+   `MenuCommand::key` reads it (`"cmd-shift-backspace"`), where `MenuEntry::key` takes the
+   character `AppKit` shows. FAIM's row menu opens `MenuEntry` rows through `open_menu`
+   and shows each command's key as its menu bar row does (#909).
 
 ## Checked
 
