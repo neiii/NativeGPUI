@@ -1223,14 +1223,16 @@ pub(crate) fn menu_anchor(
 
 /// Opens `entries` as an AppKit menu with its top-left corner at `at`, in `window`'s
 /// coordinates: how a key opens a chooser that a click opens with
-/// [`MenuOrigin::ElementTopLeft`]. `on_select` gets the chosen row's depth-first index,
-/// separators and submenu rows counted, as [`NativeContextMenu::on_select`]'s handler does.
-/// The menu opens on a later turn; nothing opens while another of this crate's menus is open,
-/// or when `entries` is empty.
+/// [`MenuOrigin::ElementTopLeft`]. `on_close` runs once the menu closes, with the chosen
+/// row's depth-first index, separators and submenu rows counted, as
+/// [`NativeContextMenu::on_select`]'s handler gets it, or `None` when it closed with no
+/// row chosen (Esc, or a click outside it). The menu opens on a later turn; nothing opens,
+/// and `on_close` never runs, while another of this crate's menus is open or when
+/// `entries` is empty.
 pub fn open_menu(
     at: Point<Pixels>,
     entries: impl IntoIterator<Item = MenuEntry>,
-    on_select: impl FnOnce(&usize, &mut Window, &mut App) + 'static,
+    on_close: impl FnOnce(Option<usize>, &mut Window, &mut App) + 'static,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -1242,9 +1244,7 @@ pub fn open_menu(
     let show = move || show_menu(&anchor, location, None, &entries);
     // Nothing to release when another menu is open: these entries go with the closure.
     let _ = track_later(&window.to_async(cx), show, move |picked, cx| {
-        if let Some(index) = picked {
-            let _ = cx.update(|window, app| on_select(&index, window, app));
-        }
+        let _ = cx.update(|window, app| on_close(picked, window, app));
     });
 }
 

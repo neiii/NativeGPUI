@@ -47,9 +47,12 @@ below, and nothing else. FAIM pins it by `rev`.
    text an app shows. FAIM's toasts size their capsule to it. The `label_fitting`
    probe checks it against the drawn label's own `fittingSize`, and that a box one point
    narrower cuts the text off.
-9. **A menu opened from a key.** `open_menu(at, entries, on_select, window, cx)` opens
+9. **A menu opened from a key.** `open_menu(at, entries, on_close, window, cx)` opens
    `MenuEntry` rows as an AppKit menu with its top-left corner at a point in the window,
-   where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and
+   where a click puts a `native_context_menu` with `MenuOrigin::ElementTopLeft`, and runs
+   `on_close` once it closes, with the chosen row's index or `None` when Esc or a click
+   outside closed it, so an app can take away what it marked while the menu was open
+   (FAIM's row menu rings the row it is open on, #909); and
    `open_command_menu(at, commands, window, cx)` does the same for `MenuCommand` rows,
    each dispatching its action as a menu bar row does; the rows a popup is opened with
    are released from the action table once it closes, where the menu bar's stay (rows a
@@ -57,7 +60,8 @@ below, and nothing else. FAIM pins it by `rev`.
    tracking loop on a later turn through `track_later`, which `NativeContextMenu`'s click
    path was rewritten to share, so a rebase can conflict in its `paint` too.
    The `menu_from_key` example opens one on ↩ and the other on ⇧↩; with `NG_DRIVE=1` it
-   sends the keys, picks a row in each and checks what it got.
+   sends the keys, picks a row in each and checks what it got, then closes a third with
+   no pick and checks `on_close` got `None`.
 10. **`MenuCommand::boxed(title, action)`.** A row from an action an app holds as a
    `Box<dyn Action>`, which `new`'s `impl Action` can't take: FAIM builds its menu bar
    from a table of commands, each making its action boxed. `new` calls it.

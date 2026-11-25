@@ -1,11 +1,11 @@
 //! A chooser whose AppKit menu opens from a key as well as a click: ↩ opens it under the
 //! chooser through `open_menu`, ⇧↩ opens a menu of `MenuCommand`s through
 //! `open_command_menu`, and a click opens the same menu as ↩ through `native_context_menu`.
-//! Each pick prints a line.
+//! Each pick prints a line, and so does a menu ↩ opened that closes with no pick.
 //!
 //! `NG_DRIVE=1` drives it without a person: it sends ↩, picks the second row of the menu
-//! that opens, sends ⇧↩, picks the second command, and exits with the number of checks
-//! that failed.
+//! that opens, sends ⇧↩, picks the second command, sends ↩ again and closes that menu
+//! with no pick, and exits with the number of checks that failed.
 
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -58,9 +58,15 @@ impl Chooser {
         open_menu(
             CHOOSER,
             hello_entries(chosen.get()),
-            move |index, _, _| {
-                chosen.set(*index);
-                println!("picked hello {index}");
+            move |picked, _, _| match picked {
+                Some(index) => {
+                    chosen.set(index);
+                    println!("picked hello {index}");
+                }
+                None => {
+                    CLOSED_UNPICKED.set(CLOSED_UNPICKED.get() + 1);
+                    println!("closed the hellos with no pick");
+                }
             },
             window,
             cx,
@@ -130,6 +136,10 @@ impl Render for Chooser {
 thread_local! {
     static DISPATCHED: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
     static OPENED: Cell<u32> = const { Cell::new(0) };
+    /// How many menus ↩ opened closed with no row chosen.
+    static CLOSED_UNPICKED: Cell<u32> = const { Cell::new(0) };
+    /// Whether the next menu to open closes with no row chosen, as Esc closes it.
+    static DISMISS_NEXT: Cell<bool> = const { Cell::new(false) };
 }
 
 fn ns_window(cx: &mut App, handle: &WindowHandle<Chooser>) -> Option<Retained<NSWindow>> {
@@ -166,7 +176,8 @@ fn send_return(window: &NSWindow, flags: NSEventModifierFlags) {
     }
 }
 
-/// Each menu that begins tracking chooses its second row as a person would, then closes.
+/// Each menu that begins tracking chooses its second row as a person would, then closes;
+/// with `DISMISS_NEXT` set, it closes with no row chosen instead.
 fn pick_second_row_of_each_menu() {
     let center = NSNotificationCenter::defaultCenter();
     let block = block2::RcBlock::new(|note: std::ptr::NonNull<NSNotification>| {
@@ -179,8 +190,11 @@ fn pick_second_row_of_each_menu() {
         };
         OPENED.set(OPENED.get() + 1);
         // Chosen from a timer in the tracking loop's own mode, as a click lands mid-tracking.
+        let dismiss = DISMISS_NEXT.replace(false);
         let timer = block2::RcBlock::new(move |_: std::ptr::NonNull<NSTimer>| {
-            menu.performActionForItemAtIndex(1);
+            if !dismiss {
+                menu.performActionForItemAtIndex(1);
+            }
             menu.cancelTracking();
         });
         let timer = unsafe { NSTimer::timerWithTimeInterval_repeats_block(0.3, false, &timer) };
@@ -251,6 +265,26 @@ async fn drive(cx: &mut AsyncApp, handle: WindowHandle<Chooser>, chosen: Rc<Cell
         "shift_return.dispatched_firefox",
         dispatched == ["Firefox"],
         format!("dispatched {dispatched:?}"),
+    );
+
+    DISMISS_NEXT.set(true);
+    send_return(&window, NSEventModifierFlags::empty());
+    settle(cx).await;
+    verdict(
+        &mut failed,
+        "dismissed.opened_a_menu",
+        OPENED.get() == 3,
+        format!("menus opened {}", OPENED.get()),
+    );
+    verdict(
+        &mut failed,
+        "dismissed.closed_with_no_pick",
+        CLOSED_UNPICKED.get() == 1 && chosen.get() == 1,
+        format!(
+            "closed unpicked {}, chosen {}",
+            CLOSED_UNPICKED.get(),
+            chosen.get()
+        ),
     );
 
     println!("\n{failed} failed");
